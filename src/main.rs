@@ -8,6 +8,7 @@ use bsp::entry;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::OutputPin;
+use libm::{self, Libm};
 use panic_probe as _;
 
 // Provide an alias for our BSP so we can switch targets quickly.
@@ -64,13 +65,19 @@ fn main() -> ! {
     // in series with the LED.
     let mut led_pin = pins.led.into_push_pull_output();
 
+    let max_theta: f32 = 3.141_592_7 * 2.0;
+    let steps: usize = 100;
     loop {
-        info!("on!");
-        led_pin.set_high().unwrap();
-        delay.delay_ms(500);
-        info!("off!");
-        led_pin.set_low().unwrap();
-        delay.delay_ms(500);
+        for i in 0..steps {
+            let theta: f32 = (i as f32 / steps as f32) * max_theta;
+            let delay_in_ms = (Libm::<f32>::sin(theta) * 200.0) as u32;
+            info!("on!");
+            led_pin.set_high().unwrap();
+            delay.delay_ms(delay_in_ms);
+            info!("off!");
+            led_pin.set_low().unwrap();
+            delay.delay_ms(delay_in_ms);
+        }
     }
 }
 
