@@ -1,13 +1,12 @@
 //! Blinks the LED on a Pico board
 //!
 //! This will blink an LED attached to GP25, which is the pin the Pico uses for the on-board LED.
+//! This example uses PIO to blink the LED instead of turning it on and off directly.
 #![no_std]
 #![no_main]
 
-use bsp::entry;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::OutputPin;
 use panic_probe as _;
 
 // Provide an alias for our BSP so we can switch targets quickly.
@@ -15,12 +14,22 @@ use panic_probe as _;
 use rp_pico as bsp;
 // use sparkfun_pro_micro_rp2040 as bsp;
 
-use bsp::hal::{
-    clocks::{init_clocks_and_plls, Clock},
-    pac,
-    sio::Sio,
-    watchdog::Watchdog,
+use bsp::{
+    entry,
+    hal::{
+        clocks::{init_clocks_and_plls, Clock},
+        gpio::{FunctionPio0, Pin},
+        pac,
+        pio::{PIOBuilder, PIOExt, PinDir},
+        sio::Sio,
+        watchdog::Watchdog,
+    },
+    Pins,
 };
+
+use pio_proc::pio_file;
+
+use cortex_m::delay::Delay;
 
 #[entry]
 fn main() -> ! {
@@ -44,9 +53,9 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
+    let mut delay = Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
-    let pins = bsp::Pins::new(
+    let pins = Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
         sio.gpio_bank0,
@@ -62,15 +71,36 @@ fn main() -> ! {
     // If you have a Pico W and want to toggle a LED with a simple GPIO output pin, you can connect an external
     // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
     // in series with the LED.
-    let mut led_pin = pins.led.into_push_pull_output();
+    let led_pin: Pin<_, FunctionPio0, _> = pins.led.into_function();
+
+    let program_with_defines = pio_file!(
+        "./src/blinky.pio",
+        select_program("blinky"),
+        options(max_program_size = 32)
+    );
+    let program = program_with_defines.program;
+
+    // Initialise and start PIO
+    let (mut pio, sm0, _, _, _) = pac.PIO0.split(&mut pac.RESETS);
+    let installed = pio.install(&program).unwrap();
+    let (int, frac) = (0, 0); // as slow as possible (0 is interpreted as 65536)
+    let (mut sm, mut _rx, mut tx) = PIOBuilder::from_program(installed)
+        .set_pins(led_pin.id().num, 1)
+        .clock_divisor_fixed_point(int, frac)
+        .build(sm0);
+
+    sm.set_pindirs([(led_pin.id().num, PinDir::Output)]);
+    sm.start();
 
     loop {
         info!("on!");
-        led_pin.set_high().unwrap();
-        delay.delay_ms(500);
+        // Push all 1s to the FIFO queue and wait.
+        tx.write(u32::MAX);
+        delay.delay_ms(100);
         info!("off!");
-        led_pin.set_low().unwrap();
-        delay.delay_ms(500);
+        // Push all 0s to the FIFI queue and wait
+        tx.write(0);
+        delay.delay_ms(100);
     }
 }
 
