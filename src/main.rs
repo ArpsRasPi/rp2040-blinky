@@ -85,7 +85,7 @@ fn main() -> ! {
     let installed = pio.install(&program).unwrap();
     let (int, frac) = (0, 0); // as slow as possible (0 is interpreted as 65536)
     let (mut sm, mut _rx, mut tx) = PIOBuilder::from_program(installed)
-        .set_pins(led_pin.id().num, 1)
+        .out_pins(led_pin.id().num, 1)
         .clock_divisor_fixed_point(int, frac)
         .build(sm0);
 
