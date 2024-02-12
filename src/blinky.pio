@@ -2,5 +2,5 @@
 	set pindirs, 1	; Set all pins (just one of them) to output
 .wrap_target		; Set the target for the program to wrap to
 	pull		; Pull a word from the FIFO queue, blocking if empty
-	out pins, 1	; Shift the LSB to the pin
+	out pins, 1	; Shift the MSB to the pin
 .wrap			; Wrap to target

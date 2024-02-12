@@ -94,8 +94,9 @@ fn main() -> ! {
 
     loop {
         info!("on!");
-        // Push all 1s to the FIFO queue and wait.
-        tx.write(u32::MAX);
+        // Push 1 into the MSB of a word onto to the FIFO queue and wait.
+        // This is because OUT pins, 1 shifts the MSB onto the pin
+        tx.write(1 << 31);
         delay.delay_ms(100);
         info!("off!");
         // Push all 0s to the FIFI queue and wait
