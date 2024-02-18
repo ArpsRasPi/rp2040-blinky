@@ -1,13 +1,13 @@
-//! Blinks the LED on a Pico board
+//! Blinks the LED on a Pico-W board
 //!
-//! This will blink an LED attached to GP25, which is the pin the Pico uses for the on-board LED.
+//! This will blink an LED attached to GP16. This is not the same pin as the built in LED
+//! on the Pico and will require an LED and a current limiting resistor in series connected to
+//! GP16 (PIN 21) on the Pico-W
 #![no_std]
 #![no_main]
 
-use bsp::entry;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::OutputPin;
 use panic_probe as _;
 
 // Provide an alias for our BSP so we can switch targets quickly.
@@ -15,11 +15,18 @@ use panic_probe as _;
 use rp_pico as bsp;
 // use sparkfun_pro_micro_rp2040 as bsp;
 
-use bsp::hal::{
-    clocks::{init_clocks_and_plls, Clock},
-    pac,
-    sio::Sio,
-    watchdog::Watchdog,
+use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::PinState;
+
+use bsp::{
+    entry,
+    hal::{
+        clocks::{init_clocks_and_plls, Clock},
+        pac,
+        sio::Sio,
+        watchdog::Watchdog,
+    },
+    Pins,
 };
 
 #[entry]
@@ -46,23 +53,16 @@ fn main() -> ! {
 
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
-    let pins = bsp::Pins::new(
+    let pins = Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
         sio.gpio_bank0,
         &mut pac.RESETS,
     );
 
-    // This is the correct pin on the Raspberry Pico board. On other boards, even if they have an
-    // on-board LED, it might need to be changed.
-    //
-    // Notably, on the Pico W, the LED is not connected to any of the RP2040 GPIOs but to the cyw43 module instead.
-    // One way to do that is by using [embassy](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/wifi_blinky.rs)
-    //
-    // If you have a Pico W and want to toggle a LED with a simple GPIO output pin, you can connect an external
-    // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
-    // in series with the LED.
-    let mut led_pin = pins.led.into_push_pull_output();
+    // On the Pico W, the LED is not connected to any of the RP2040 GPIOs but to the cyw43 module instead.
+    // So, we use an LED on GP16 instead.
+    let mut led_pin = pins.gpio16.into_push_pull_output_in_state(PinState::Low);
 
     loop {
         info!("on!");

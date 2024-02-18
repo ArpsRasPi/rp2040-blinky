@@ -23,6 +23,11 @@ rp-pico = "0.8"
 # rp2040-hal = { version="0.9", features=["rt", "critical-section-impl"] }
 # rp2040-boot2 = "0.3"
 
+[[bin]]
+name = "rp2040-blinky"
+test = false
+bench = false
+
 # cargo build/run
 [profile.dev]
 codegen-units = 1
